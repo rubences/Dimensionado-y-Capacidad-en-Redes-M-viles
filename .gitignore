@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+env/
+
+# Jupyter executed artefacts
+*_executed.ipynb
+.ipynb_checkpoints/
+
+# Generated figures (reproduced by running the notebook)
+nmax_vs_velocidad.png
+nmax_vs_actividad.png
+comparativa_pc.png
+admision_carga.png
+sensibilidad_i.png
+heatmap_nmax.png
