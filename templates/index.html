@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard Uplink Campus</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Dimensionado uplink en campus</p>
+          <h1>Saturación del enlace ascendente en hora punta</h1>
+          <p class="lede">
+            Visualización web del análisis de capacidad uplink para una célula WCDMA/UMTS con tráfico mixto,
+            movilidad heterogénea y control de potencia variable.
+          </p>
+        </div>
+        <div class="hero-panel">
+          <div class="stat-chip">W = {{ payload.cards.w_mchips }} Mchip/s</div>
+          <div class="stat-chip">η objetivo = {{ payload.cards.eta_target }}</div>
+          <div class="stat-chip">i = {{ payload.cards.intercell_factor }}</div>
+        </div>
+      </header>
+
+      <section class="cards-grid">
+        <article class="metric-card accent-a">
+          <span class="metric-label">Voz 12.2 kb/s a 3 km/h</span>
+          <strong>{{ payload.cards.max_voice_3_kmh }}</strong>
+          <p>Usuarios simultáneos con actividad media 0.50.</p>
+        </article>
+        <article class="metric-card accent-b">
+          <span class="metric-label">Datos 64 kb/s a 3 km/h</span>
+          <strong>{{ payload.cards.max_data64_3_kmh }}</strong>
+          <p>Sesiones intensivas antes del umbral operativo.</p>
+        </article>
+        <article class="metric-card accent-c">
+          <span class="metric-label">Datos 64 kb/s a 50 km/h</span>
+          <strong>{{ payload.cards.max_data64_50_kmh }}</strong>
+          <p>Capacidad reducida por movilidad alta.</p>
+        </article>
+        <article class="metric-card accent-d">
+          <span class="metric-label">Carga final de admisión</span>
+          <strong>{{ payload.cards.admission_final_load }}</strong>
+          <p>Secuencia ejemplo con política basada en carga.</p>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel wide">
+          <div class="panel-head">
+            <h2>Nmax frente a velocidad</h2>
+            <p>Curvas por servicio con factores de actividad 0.40, 0.50 y 0.70.</p>
+          </div>
+          <div class="charts-3up">
+            {% for service_name in payload.charts.speed_curves.keys() %}
+            <div class="chart-card">
+              <h3>{{ service_name }}</h3>
+              <canvas id="speed-chart-{{ loop.index }}"></canvas>
+            </div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="panel wide">
+          <div class="panel-head">
+            <h2>Nmax frente a factor de actividad</h2>
+            <p>Curvas por servicio para 3, 15 y 50 km/h.</p>
+          </div>
+          <div class="charts-3up">
+            {% for service_name in payload.charts.activity_curves.keys() %}
+            <div class="chart-card">
+              <h3>{{ service_name }}</h3>
+              <canvas id="activity-chart-{{ loop.index }}"></canvas>
+            </div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Comparativa de control de potencia</h2>
+            <p>Impacto de un peor seguimiento del canal sobre Nmax.</p>
+          </div>
+          <canvas id="pc-bars"></canvas>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Evolución de la admisión</h2>
+            <p>La carga acumulada se limita con una regla por umbral.</p>
+          </div>
+          <canvas id="admission-load"></canvas>
+        </article>
+      </section>
+
+      <section class="content-grid tables-section">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Tabla Nmax por velocidad</h2>
+            <p>Actividad fija en 0.50.</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {% for column in payload.tables.speed[0].keys() %}
+                  <th>{{ column }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in payload.tables.speed %}
+                <tr>
+                  {% for value in row.values() %}
+                  <td>{{ value }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Tabla Nmax por actividad</h2>
+            <p>Velocidad fija de 3 km/h.</p>
+          </div>
+          <div class="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  {% for column in payload.tables.activity[0].keys() %}
+                  <th>{{ column }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in payload.tables.activity %}
+                <tr>
+                  {% for value in row.values() %}
+                  <td>{{ value }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="content-grid bottom-grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Conclusiones operativas</h2>
+            <p>Resumen para gestión de red del campus.</p>
+          </div>
+          <div class="conclusions">
+            {% for item in payload.conclusions %}
+            <div class="conclusion-item">
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.detail }}</p>
+            </div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Política de admisión recomendada</h2>
+            <p>Regla simple para proteger el uplink en hora punta.</p>
+          </div>
+          <ol class="policy-list">
+            <li>Admitir nuevas sesiones mientras la carga estimada sea menor que 0.70.</li>
+            <li>Entre 0.70 y 0.72, priorizar voz y sesiones ya establecidas, y diferir subidas intensivas.</li>
+            <li>Por encima de 0.72, bloquear nuevas sesiones de 64 kb/s y sincronización no urgente.</li>
+          </ol>
+        </article>
+      </section>
+    </div>
+
+    <script>
+      const payload = {{ payload | tojson }};
+      const colorSets = ['#0f766e', '#f97316', '#2563eb'];
+
+      function buildLineChart(canvasId, traces, xTitle, yTitle) {
+        const ctx = document.getElementById(canvasId);
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            datasets: traces.map((trace, index) => ({
+              label: trace.label,
+              data: trace.x.map((value, pointIndex) => ({ x: value, y: trace.y[pointIndex] })),
+              borderColor: colorSets[index % colorSets.length],
+              backgroundColor: colorSets[index % colorSets.length],
+              tension: 0.2,
+              fill: false,
+            })),
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+              x: { type: 'linear', title: { display: true, text: xTitle } },
+              y: { title: { display: true, text: yTitle }, beginAtZero: true },
+            },
+          },
+        });
+      }
+
+      Object.entries(payload.charts.speed_curves).forEach(([serviceName, traces], index) => {
+        buildLineChart(`speed-chart-${index + 1}`, traces, 'Velocidad [km/h]', 'Nmax');
+      });
+
+      Object.entries(payload.charts.activity_curves).forEach(([serviceName, traces], index) => {
+        buildLineChart(`activity-chart-${index + 1}`, traces, 'Factor de actividad', 'Nmax');
+      });
+
+      new Chart(document.getElementById('pc-bars'), {
+        type: 'bar',
+        data: {
+          labels: payload.charts.pc_bars.labels,
+          datasets: payload.charts.pc_bars.series.map((series, index) => ({
+            label: series.label,
+            data: series.values,
+            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'][index],
+            borderRadius: 8,
+          })),
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { beginAtZero: true, title: { display: true, text: 'Nmax' } } },
+        },
+      });
+
+      new Chart(document.getElementById('admission-load'), {
+        type: 'line',
+        data: {
+          labels: payload.charts.admission_load.x,
+          datasets: [
+            {
+              label: 'Carga acumulada',
+              data: payload.charts.admission_load.y,
+              borderColor: '#7c3aed',
+              backgroundColor: 'rgba(124, 58, 237, 0.12)',
+              fill: true,
+              tension: 0.15,
+            },
+            {
+              label: 'Umbral η',
+              data: payload.charts.admission_load.x.map(() => payload.charts.admission_load.threshold),
+              borderColor: '#ef4444',
+              borderDash: [6, 6],
+              pointRadius: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } },
+          scales: {
+            x: { title: { display: true, text: 'Solicitud' } },
+            y: { beginAtZero: true, max: 1, title: { display: true, text: 'Carga uplink η' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
