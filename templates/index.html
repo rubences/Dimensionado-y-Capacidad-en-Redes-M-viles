@@ -28,23 +28,72 @@
         </div>
       </header>
 
+      <section class="panel filters-panel">
+        <div class="panel-head">
+          <h2>Filtros interactivos</h2>
+          <p>Ajusta velocidad, actividad, umbral η e interferencia intercelular para recalcular capacidad.</p>
+        </div>
+        <form method="get" class="filters-form">
+          <label>
+            Velocidad [km/h]
+            <select name="speed">
+              {% for speed in payload.filters.speed_options %}
+              <option value="{{ speed }}" {% if speed == payload.cards.selected_speed %}selected{% endif %}>{{ speed }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Factor de actividad
+            <select name="activity">
+              {% for activity in payload.filters.activity_options %}
+              <option value="{{ activity }}" {% if activity == payload.cards.selected_activity %}selected{% endif %}>{{ '%.2f' | format(activity) }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Umbral η
+            <input type="number" name="eta" min="0.65" max="0.80" step="0.01" value="{{ payload.cards.eta_target }}">
+          </label>
+          <label>
+            Interferencia i
+            <input type="number" name="i" min="0.50" max="0.85" step="0.01" value="{{ payload.cards.intercell_factor }}">
+          </label>
+          <button type="submit">Aplicar filtros</button>
+        </form>
+        <div class="quick-links">
+          <a href="{{ url_for('api_uplink', speed=payload.cards.selected_speed, activity=payload.cards.selected_activity, eta=payload.cards.eta_target, i=payload.cards.intercell_factor) }}">Ver JSON API</a>
+          <a href="{{ url_for('export_conclusions_html', speed=payload.cards.selected_speed, activity=payload.cards.selected_activity, eta=payload.cards.eta_target, i=payload.cards.intercell_factor) }}">Exportar conclusiones HTML</a>
+          <a href="{{ url_for('export_conclusions_pdf', speed=payload.cards.selected_speed, activity=payload.cards.selected_activity, eta=payload.cards.eta_target, i=payload.cards.intercell_factor) }}">Exportar conclusiones PDF</a>
+        </div>
+      </section>
+
       <section class="cards-grid">
         <article class="metric-card accent-a">
-          <span class="metric-label">Voz 12.2 kb/s a 3 km/h</span>
-          <strong>{{ payload.cards.max_voice_3_kmh }}</strong>
-          <p>Usuarios simultáneos con actividad media 0.50.</p>
+          <span class="metric-label">Voz 12.2 kb/s (escenario filtrado)</span>
+          <strong>{{ payload.cards.filtered_voice }}</strong>
+          <p>Nmax para {{ payload.cards.selected_speed }} km/h y actividad {{ payload.cards.selected_activity }}.</p>
         </article>
         <article class="metric-card accent-b">
+          <span class="metric-label">Datos 64 kb/s (escenario filtrado)</span>
+          <strong>{{ payload.cards.filtered_data64 }}</strong>
+          <p>Nmax con η={{ payload.cards.eta_target }} e i={{ payload.cards.intercell_factor }}.</p>
+        </article>
+        <article class="metric-card accent-c">
+          <span class="metric-label">Voz 12.2 kb/s a 3 km/h</span>
+          <strong>{{ payload.cards.max_voice_3_kmh }}</strong>
+          <p>Referencia comparativa con actividad filtrada.</p>
+        </article>
+        <article class="metric-card accent-d">
           <span class="metric-label">Datos 64 kb/s a 3 km/h</span>
           <strong>{{ payload.cards.max_data64_3_kmh }}</strong>
           <p>Sesiones intensivas antes del umbral operativo.</p>
         </article>
-        <article class="metric-card accent-c">
+        <article class="metric-card accent-a">
           <span class="metric-label">Datos 64 kb/s a 50 km/h</span>
           <strong>{{ payload.cards.max_data64_50_kmh }}</strong>
           <p>Capacidad reducida por movilidad alta.</p>
         </article>
-        <article class="metric-card accent-d">
+        <article class="metric-card accent-b">
           <span class="metric-label">Carga final de admisión</span>
           <strong>{{ payload.cards.admission_final_load }}</strong>
           <p>Secuencia ejemplo con política basada en carga.</p>
@@ -100,6 +149,33 @@
       </section>
 
       <section class="content-grid tables-section">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Tabla filtrada por escenario</h2>
+            <p>Comparativa de servicios para la velocidad y actividad seleccionadas.</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {% for column in payload.tables.filtered[0].keys() %}
+                  <th>{{ column }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in payload.tables.filtered %}
+                <tr>
+                  {% for value in row.values() %}
+                  <td>{{ value }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
         <article class="panel">
           <div class="panel-head">
             <h2>Tabla Nmax por velocidad</h2>

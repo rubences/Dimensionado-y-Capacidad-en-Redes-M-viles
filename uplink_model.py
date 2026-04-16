@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -96,6 +97,22 @@ def build_activity_table(speed: int = 3) -> pd.DataFrame:
             row[f"v={activity:.2f}"] = int(nmax(rb, activity, ebn0_linear(service_name, speed)))
         records.append(row)
     return pd.DataFrame(records).set_index("Servicio")
+
+
+def build_filtered_service_table(speed_kmh: int, activity: float, eta_tgt: float = ETA_TARGET, i_factor: float = I_FACTOR) -> pd.DataFrame:
+    rows = []
+    for service_name, rb in SERVICES.items():
+        ebn0 = ebn0_linear(service_name, speed_kmh)
+        rows.append(
+            {
+                "Servicio": service_name,
+                "Velocidad [km/h]": speed_kmh,
+                "Actividad": round(activity, 2),
+                "Eb/N0 [dB]": round(10 * np.log10(ebn0), 2),
+                "Nmax": int(nmax(rb, activity, ebn0, eta_tgt=eta_tgt, i=i_factor)),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def build_summary_table() -> pd.DataFrame:
@@ -204,12 +221,18 @@ def build_admission_example(seed: int = 42, arrivals_count: int = 30) -> tuple[p
     return admission_control_simulation(arrivals)
 
 
-def build_dashboard_payload() -> dict[str, object]:
-    speed_table = build_speed_table()
-    activity_table = build_activity_table()
+def build_dashboard_payload(
+    selected_speed: int = 15,
+    selected_activity: float = 0.50,
+    eta_tgt: float = ETA_TARGET,
+    i_factor: float = I_FACTOR,
+) -> dict[str, object]:
+    speed_table = build_speed_table(activity=selected_activity)
+    activity_table = build_activity_table(speed=selected_speed)
     summary_table = build_summary_table()
-    pc_table = build_pc_comparison()
+    pc_table = build_pc_comparison(activity=selected_activity)
     admission_table, final_load = build_admission_example()
+    filtered_table = build_filtered_service_table(selected_speed, selected_activity, eta_tgt=eta_tgt, i_factor=i_factor)
 
     key_points = [
         Conclusion(
@@ -222,23 +245,59 @@ def build_dashboard_payload() -> dict[str, object]:
         ),
         Conclusion(
             title="La admisión por carga es más útil que contar usuarios",
-            detail="La decisión operativa correcta es limitar nuevas sesiones intensivas cuando la carga estimada supera 0.70 y bloquearlas de forma estricta por encima de 0.72.",
+            detail=f"La decisión operativa correcta es limitar nuevas sesiones intensivas cuando la carga estimada supera {eta_tgt:.2f} y bloquearlas de forma estricta por encima de {eta_tgt + 0.02:.2f}.",
+        ),
+        Conclusion(
+            title="La célula requiere política diferenciada por tipo de sesión",
+            detail="Aplicar cuotas por clase de tráfico protege voz y LMS interactivo frente a sincronizaciones no urgentes cuando el uplink se acerca al umbral.",
+        ),
+        Conclusion(
+            title="El umbral operativo debe revisarse por entorno",
+            detail="En zonas con mayor velocidad media o calibración imperfecta, conviene operar con umbrales más conservadores para evitar inestabilidad cerca del polo de carga.",
         ),
     ]
 
+    filtered_voice = int(
+        nmax(
+            SERVICES["Voz AMR 12.2 kb/s"],
+            selected_activity,
+            ebn0_linear("Voz AMR 12.2 kb/s", selected_speed),
+            eta_tgt=eta_tgt,
+            i=i_factor,
+        )
+    )
+    filtered_64 = int(
+        nmax(
+            SERVICES["Datos  64 kb/s"],
+            selected_activity,
+            ebn0_linear("Datos  64 kb/s", selected_speed),
+            eta_tgt=eta_tgt,
+            i=i_factor,
+        )
+    )
+
     return {
         "cards": {
-            "eta_target": ETA_TARGET,
-            "intercell_factor": I_FACTOR,
+            "eta_target": round(eta_tgt, 2),
+            "intercell_factor": round(i_factor, 2),
+            "selected_speed": selected_speed,
+            "selected_activity": round(selected_activity, 2),
             "w_mchips": round(W_CHIPS / 1e6, 2),
-            "max_voice_3_kmh": int(nmax(SERVICES["Voz AMR 12.2 kb/s"], 0.50, ebn0_linear("Voz AMR 12.2 kb/s", 3))),
-            "max_data64_3_kmh": int(nmax(SERVICES["Datos  64 kb/s"], 0.50, ebn0_linear("Datos  64 kb/s", 3))),
-            "max_data64_50_kmh": int(nmax(SERVICES["Datos  64 kb/s"], 0.50, ebn0_linear("Datos  64 kb/s", 50))),
+            "max_voice_3_kmh": int(nmax(SERVICES["Voz AMR 12.2 kb/s"], selected_activity, ebn0_linear("Voz AMR 12.2 kb/s", 3), eta_tgt=eta_tgt, i=i_factor)),
+            "max_data64_3_kmh": int(nmax(SERVICES["Datos  64 kb/s"], selected_activity, ebn0_linear("Datos  64 kb/s", 3), eta_tgt=eta_tgt, i=i_factor)),
+            "max_data64_50_kmh": int(nmax(SERVICES["Datos  64 kb/s"], selected_activity, ebn0_linear("Datos  64 kb/s", 50), eta_tgt=eta_tgt, i=i_factor)),
+            "filtered_voice": filtered_voice,
+            "filtered_data64": filtered_64,
             "admission_final_load": round(final_load, 4),
+        },
+        "filters": {
+            "speed_options": SPEEDS_KMH,
+            "activity_options": [round(value, 2) for value in ACTIVITY_FACTORS.tolist()],
         },
         "tables": {
             "speed": speed_table.reset_index().to_dict(orient="records"),
             "activity": activity_table.reset_index().to_dict(orient="records"),
+            "filtered": filtered_table.to_dict(orient="records"),
             "summary": summary_table.to_dict(orient="records"),
             "pc": pc_table.reset_index().to_dict(orient="records"),
             "admission": admission_table.to_dict(orient="records"),
@@ -249,7 +308,7 @@ def build_dashboard_payload() -> dict[str, object]:
             "admission_load": {
                 "x": admission_table["t"].tolist(),
                 "y": admission_table["η acum."].tolist(),
-                "threshold": ETA_TARGET,
+                "threshold": eta_tgt,
             },
             "pc_bars": {
                 "labels": list(SERVICES.keys()),
@@ -263,4 +322,23 @@ def build_dashboard_payload() -> dict[str, object]:
             },
         },
         "conclusions": [point.__dict__ for point in key_points],
+    }
+
+
+def build_conclusions_report(payload: dict[str, object]) -> dict[str, object]:
+    cards = payload["cards"]
+    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+    lines = [
+        "Resumen ejecutivo",
+        f"- Umbral de carga usado: {cards['eta_target']}",
+        f"- Factor intercelular usado: {cards['intercell_factor']}",
+        f"- Escenario filtrado: {cards['selected_speed']} km/h, actividad {cards['selected_activity']}",
+        f"- Voz 12.2 kb/s (escenario filtrado): Nmax={cards['filtered_voice']}",
+        f"- Datos 64 kb/s (escenario filtrado): Nmax={cards['filtered_data64']}",
+    ]
+    return {
+        "generated_at": generated_at,
+        "title": "Conclusiones operativas de saturacion uplink en campus",
+        "summary_lines": lines,
+        "conclusions": payload["conclusions"],
     }

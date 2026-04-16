@@ -86,7 +86,7 @@ body {
 }
 
 .cards-grid {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .content-grid {
@@ -141,6 +141,58 @@ body {
 
 .panel {
   padding: 22px;
+}
+
+.filters-panel {
+  margin-top: 22px;
+}
+
+.filters-form {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.filters-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.filters-form input,
+.filters-form select,
+.filters-form button {
+  font: inherit;
+  border-radius: 12px;
+  border: 1px solid rgba(19, 35, 30, 0.15);
+  padding: 10px 12px;
+}
+
+.filters-form button {
+  cursor: pointer;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(120deg, var(--accent-a), #155e75);
+}
+
+.quick-links {
+  margin-top: 14px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.quick-links a {
+  color: #0f172a;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 2px solid rgba(15, 23, 42, 0.2);
+}
+
+.quick-links a:hover {
+  border-bottom-color: rgba(15, 23, 42, 0.55);
 }
 
 .panel-head h2,
@@ -225,6 +277,10 @@ th {
   .charts-3up {
     grid-template-columns: 1fr;
   }
+
+  .filters-form {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 700px) {
@@ -238,6 +294,10 @@ th {
   .metric-card {
     border-radius: 20px;
     padding: 18px;
+  }
+
+  .filters-form {
+    grid-template-columns: 1fr;
   }
 
   .hero h1 {
